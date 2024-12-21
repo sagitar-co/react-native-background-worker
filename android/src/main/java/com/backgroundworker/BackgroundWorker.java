@@ -8,7 +8,6 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.work.Data;
 import androidx.work.RxWorker;
 import androidx.work.WorkerParameters;
@@ -78,7 +77,7 @@ public class BackgroundWorker extends RxWorker {
                     }
                 }
             };
-            LocalBroadcastManager.getInstance(BackgroundWorkerModule.context).registerReceiver(receiver,new IntentFilter(id+"result"));
+            BackgroundWorkerModule.context.registerReceiver(receiver,new IntentFilter(id+"result"));
         });
     }
 }
