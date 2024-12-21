@@ -105,7 +105,7 @@ afterEvaluate { project ->
     task androidJavadoc(type: Javadoc) {
         source = android.sourceSets.main.java.srcDirs
         classpath += files(android.bootClasspath)
-        classpath += files(project.getConfigurations().getByName('compileClasspath').asList())
+        classpath += files(project.getConfigurations().getByName('releaseCompileClasspath').asList())
         include '**/*.java'
     }
 
