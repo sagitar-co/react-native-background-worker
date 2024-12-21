@@ -134,20 +134,43 @@ afterEvaluate { project ->
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            // Use the Android release component
+            from components.release
 
-            // Configure the POM using the same `configureReactNativePom` method
-            pom.withXml {
-                asNode().appendNode('description', 'Background worker for React Native')
-                // Add more POM customizations if needed
-                configureReactNativePom(delegate)
+            // Configure POM details
+            pom {
+                name.set("React Native Background Worker")
+                description.set("Background worker library for React Native")
+                url.set("https://github.com/sagitar-co/react-native-background-worker")
+
+                licenses {
+                    license {
+                        name.set("Apache-2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0")
+                        distribution.set("repo")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("incognos")
+                        name.set("Sina Khelil")
+                        email.set("sina@khelil.com")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:git://github.com/sagitar-co/react-native-background-worker.git")
+                    developerConnection.set("scm:git:ssh://github.com/sagitar-co/react-native-background-worker.git")
+                    url.set("https://github.com/sagitar-co/react-native-background-worker")
+                }
             }
         }
     }
 
     repositories {
         maven {
-            url "file://${projectDir}/../android/maven"
+            url = uri("${projectDir}/../android/maven")
         }
     }
 }
