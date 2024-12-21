@@ -64,6 +64,14 @@ dependencies {
     implementation "androidx.work:work-rxjava2:2.3.4"
 }
 
+configurations {
+    implementationResolvable {
+        canBeResolved = true
+        canBeConsumed = false
+        extendsFrom configurations.implementation
+    }
+}
+
 def configureReactNativePom(def pom) {
     def packageJson = new JsonSlurper().parseText(file('../package.json').text)
 
