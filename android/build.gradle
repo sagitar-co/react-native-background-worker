@@ -105,7 +105,7 @@ afterEvaluate { project ->
     task androidJavadoc(type: Javadoc) {
         source = android.sourceSets.main.java.srcDirs
         classpath += files(android.bootClasspath)
-        classpath += files(project.getConfigurations().getByName('implementation').asList())
+        classpath += files(project.getConfigurations().getByName('compileClasspath').asList())
         include '**/*.java'
     }
 
@@ -122,8 +122,8 @@ afterEvaluate { project ->
 
     android.libraryVariants.all { variant ->
         def name = variant.name.capitalize()
-        task "jar${name}"(type: Jar, dependsOn: variant.javaCompile) {
-            from variant.javaCompile.destinationDir
+        task "jar${name}"(type: Jar, dependsOn: variant.javaCompileProvider) {
+            from variant.javaCompileProvider.destinationDirectory
         }
     }
 
