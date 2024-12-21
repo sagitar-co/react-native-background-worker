@@ -8,7 +8,6 @@ import android.os.Looper;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -176,7 +175,7 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
         Intent intent = new Intent(id + "result");
         intent.putExtra("result", result);
         intent.putExtra("value", value);
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+        context.sendBroadcast(intent);
     }
 
     /**
