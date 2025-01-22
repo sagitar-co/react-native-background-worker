@@ -39,8 +39,8 @@ public class BackgroundWorkerService extends HeadlessJsTaskService {
         String text = extras.getString("text");
         assert text!=null;
 
-        int timeout = (int) extras.getDouble("timeout", 0.0);
-        
+        int timeout = (int) extras.getDouble("timeout", 10000.0);
+
         String id = extras.getString("id");
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
