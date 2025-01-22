@@ -53,9 +53,7 @@ public class BackgroundWorkerService extends HeadlessJsTaskService {
                     .setWhen(System.currentTimeMillis())
                     .setContentText(text)
                     .setContentTitle(title)
-                    .setSmallIcon(getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) != 0 
-                                ? getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) 
-                                : R.drawable.ic_launcher)
+                    .setSmallIcon(getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()))
                     .build();
 
             startForeground(id==null? 123456789 : id.hashCode(), notification);
