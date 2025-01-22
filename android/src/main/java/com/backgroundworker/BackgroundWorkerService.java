@@ -55,7 +55,7 @@ public class BackgroundWorkerService extends HeadlessJsTaskService {
                     .setContentTitle(title)
                     .setSmallIcon(getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) != 0 
                                 ? getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) 
-                                : R.drawable.default_icon) // Replace 'default_icon' with your default drawable resource
+                                : R.drawable.ic_launcher)
                     .build();
 
             startForeground(id==null? 123456789 : id.hashCode(), notification);
