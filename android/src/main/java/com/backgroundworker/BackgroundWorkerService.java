@@ -39,8 +39,8 @@ public class BackgroundWorkerService extends HeadlessJsTaskService {
         String text = extras.getString("text");
         assert text!=null;
 
-        int timeout = extras.getInt("timeout");
-
+        int timeout = (int) extras.getDouble("timeout", 0.0);
+        
         String id = extras.getString("id");
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -53,7 +53,9 @@ public class BackgroundWorkerService extends HeadlessJsTaskService {
                     .setWhen(System.currentTimeMillis())
                     .setContentText(text)
                     .setContentTitle(title)
-                    .setSmallIcon(getResources().getIdentifier(name,"drawable",getApplicationContext().getPackageName()))
+                    .setSmallIcon(getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) != 0 
+                                ? getResources().getIdentifier(name, "drawable", getApplicationContext().getPackageName()) 
+                                : R.drawable.default_icon) // Replace 'default_icon' with your default drawable resource
                     .build();
 
             startForeground(id==null? 123456789 : id.hashCode(), notification);
