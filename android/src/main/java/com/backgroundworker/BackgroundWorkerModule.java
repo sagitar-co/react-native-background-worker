@@ -71,48 +71,59 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void registerWorker(ReadableMap worker, ReadableMap constraints, Promise p) {
-
-        String type = worker.getString("type");
-        String name = worker.getString("name");
-
-        if(name == null || type == null) {
-            p.reject("ERROR", "missing worker info");
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post(() -> registerWorker(worker, constraints, p));
             return;
         }
 
-        if(type.equals("queue")) {
+        try {
+            String type = worker.getString("type");
+            String name = worker.getString("name");
 
-            Constraints _constraints = Parser.getConstraints(constraints);
-            if(_constraints!=null) queuedConstraints.put(name, _constraints);
+            if(name == null || type == null) {
+                p.reject("ERROR", "missing worker info");
+                return;
+            }
 
-            queuedWorkers.put(name, worker);
-            p.resolve(null);
-            return;
+            if(type.equals("queue")) {
+                Constraints _constraints = Parser.getConstraints(constraints);
+                if(_constraints!=null) queuedConstraints.put(name, _constraints);
+                queuedWorkers.put(name, worker);
+                p.resolve(null);
+                return;
+            }
 
+            if(type.equals("periodic")) {
+                int repeatInterval = worker.getInt("repeatInterval");
+                Constraints _constraints = Parser.getConstraints(constraints);
+
+                PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(BackgroundWorker.class, Math.max(15, repeatInterval), TimeUnit.MINUTES);
+                if(_constraints!=null) builder.setConstraints(_constraints);
+
+                Data inputData = new Data.Builder()
+                        .putAll(worker.toHashMap())
+                        .build();
+
+                builder.setInputData(inputData);
+                PeriodicWorkRequest request = builder.build();
+
+                Operation operation = WorkManager.getInstance(context)
+                    .enqueueUniquePeriodicWork(name, ExistingPeriodicWorkPolicy.REPLACE, request);
+                
+                operation.getResult().addListener(() -> {
+                    try {
+                        operation.getResult().get();
+                        handler.post(() -> p.resolve(request.getId().toString()));
+                    } catch (Exception e) {
+                        handler.post(() -> p.reject("REGISTER_ERROR", "Failed to register periodic work: " + e.getMessage()));
+                    }
+                }, Executors.newSingleThreadExecutor());
+                return;
+            }
+            p.reject("ERROR", "incompatible worker type: " + type);
+        } catch (Exception e) {
+            p.reject("ERROR", "Failed to register worker: " + e.getMessage());
         }
-        if(type.equals("periodic")) {
-
-            int repeatInterval = worker.getInt("repeatInterval");
-            Constraints _constraints = Parser.getConstraints(constraints);
-
-            PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(BackgroundWorker.class, Math.max(15, repeatInterval), TimeUnit.MINUTES);
-            if(_constraints!=null) builder.setConstraints(_constraints);
-
-            Data inputData = new Data.Builder()
-                    .putAll(worker.toHashMap())
-                    .build();
-
-            builder.setInputData(inputData);
-
-            PeriodicWorkRequest request = builder.build();
-
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(name, ExistingPeriodicWorkPolicy.REPLACE, request);
-            p.resolve(request.getId().toString());
-            return;
-
-        }
-        p.reject("ERROR","incompatible worker type");
-
     }
 
     /**
@@ -123,6 +134,11 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void enqueue(String worker, String payload, Promise p) {
+        // Ensure we're running on the right thread for React Native bridge operations
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post(() -> enqueue(worker, payload, p));
+            return;
+        }
 
         ReadableMap _worker = queuedWorkers.get(worker);
         Constraints _constraints = queuedConstraints.get(worker);
@@ -132,22 +148,33 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        Data inputData = new Data.Builder()
-                .putAll(_worker.toHashMap())
-                .putString("payload", payload)
-                .build();
+        try {
+            Data inputData = new Data.Builder()
+                    .putAll(_worker.toHashMap())
+                    .putString("payload", payload)
+                    .build();
 
-        OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(BackgroundWorker.class)
-                .setInputData(inputData);
+            OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(BackgroundWorker.class)
+                    .setInputData(inputData);
 
-        if(_constraints!=null) builder.setConstraints(_constraints);
+            if(_constraints!=null) builder.setConstraints(_constraints);
 
-        WorkRequest request = builder.build();
+            WorkRequest request = builder.build();
 
-        p.resolve(request.getId().toString());
-
-        WorkManager.getInstance(context).enqueue(request);
-
+            // Enqueue the work and handle the operation result
+            Operation operation = WorkManager.getInstance(context).enqueue(request);
+            operation.getResult().addListener(() -> {
+                try {
+                    operation.getResult().get();
+                    // Ensure promise resolution happens on the main thread
+                    handler.post(() -> p.resolve(request.getId().toString()));
+                } catch (Exception e) {
+                    handler.post(() -> p.reject("ENQUEUE_ERROR", "Failed to enqueue work: " + e.getMessage()));
+                }
+            }, Executors.newSingleThreadExecutor());
+        } catch (Exception e) {
+            p.reject("ENQUEUE_ERROR", "Failed to create work request: " + e.getMessage());
+        }
     }
 
     /**
@@ -185,16 +212,26 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void cancel(String id, final Promise p) {
-        final Operation operation = WorkManager.getInstance(context).cancelWorkById(UUID.fromString(id));
-        ListenableFuture<State.SUCCESS> futureSuccess = operation.getResult();
-        futureSuccess.addListener(() -> {
-            try {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post(() -> cancel(id, p));
+            return;
+        }
 
-                State.SUCCESS success = futureSuccess.get();
-                p.resolve(success);
-
-            } catch (Throwable e) { p.reject(e); }
-        },Executors.newSingleThreadExecutor());
+        try {
+            final Operation operation = WorkManager.getInstance(context)
+                .cancelWorkById(UUID.fromString(id));
+            
+            operation.getResult().addListener(() -> {
+                try {
+                    State.SUCCESS success = operation.getResult().get();
+                    handler.post(() -> p.resolve(success != null));
+                } catch (Exception e) {
+                    handler.post(() -> p.reject("CANCEL_ERROR", "Failed to cancel work: " + e.getMessage()));
+                }
+            }, Executors.newSingleThreadExecutor());
+        } catch (Exception e) {
+            p.reject("ERROR", "Invalid work ID: " + e.getMessage());
+        }
     }
 
     /**
@@ -204,12 +241,29 @@ public class BackgroundWorkerModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void info(String id, final Promise p) {
-        ListenableFuture<WorkInfo> futureInfo = WorkManager.getInstance(context).getWorkInfoById(UUID.fromString(id));
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post(() -> info(id, p));
+            return;
+        }
+
         try {
-            WorkInfo info = futureInfo.get();
-            p.resolve(Arguments.fromBundle(Parser.getWorkInfo(info)));
-        } catch (Throwable e) {
-            p.reject(e);
+            ListenableFuture<WorkInfo> futureInfo = WorkManager.getInstance(context)
+                .getWorkInfoById(UUID.fromString(id));
+            
+            futureInfo.addListener(() -> {
+                try {
+                    WorkInfo info = futureInfo.get();
+                    if (info == null) {
+                        handler.post(() -> p.reject("ERROR", "Work info not found for id: " + id));
+                        return;
+                    }
+                    handler.post(() -> p.resolve(Arguments.fromBundle(Parser.getWorkInfo(info))));
+                } catch (Exception e) {
+                    handler.post(() -> p.reject("ERROR", "Failed to get work info: " + e.getMessage()));
+                }
+            }, Executors.newSingleThreadExecutor());
+        } catch (Exception e) {
+            p.reject("ERROR", "Invalid work ID: " + e.getMessage());
         }
     }
 
